@@ -13,11 +13,11 @@ namespace AsyncBreakfast
 
     class Program
     {
+        private static float timeForShortTask = .5f;
         private static float timeToMakeCup = 1;
         private static float timeToCookEgg = 3;
         private static float timeToWarmPan = 1;
         private static float timeToFryBacon = 3;
-        private static float timeToFlipBacon = .5f;
         private static float timeToToastBread = 3;
         private static float timeToPourJuice = 1;
 
@@ -70,23 +70,23 @@ namespace AsyncBreakfast
             Console.WriteLine("Breakfast is ready!");
         }
 
-        private static async Task DoTask(float timeTocomplete)
+        private static async Task Delay(float timeTocomplete)
         {
             await Task.Delay(GetTime(timeTocomplete));
         }
 
         private static async Task<Coffee> MakeCoffeeAsync(int cups)
         {
-            Console.WriteLine($"Making {cups} cups of cofee");
-            await DoTask(timeToMakeCup * cups);
-            Console.WriteLine($"Pot of {cups} cups of cofee is done");
-            return PourCoffee();
+            Console.WriteLine($"Making {cups} cups of coffee");
+            await Delay(timeToMakeCup * cups);
+            Console.WriteLine($"Pot of {cups} cups of coffee is done");
+            return await PourCoffee();
         }
 
         private static async Task<Juice> PourJuiceAsync()
         {
-            Console.WriteLine("Pouring orange juice");
-            await DoTask(timeToPourJuice);
+            Console.WriteLine("Pouring juice");
+            await Delay(timeToPourJuice);
             return new Juice();
         }
 
@@ -108,10 +108,11 @@ namespace AsyncBreakfast
         {
             for (int slice = 0; slice < slices; slice++)
             {
-                Console.WriteLine("Putting a slice of bread in the toaster");
+                Console.WriteLine($"Putting slice of bread {slice + 1} in the toaster");
+                await Delay(timeForShortTask);
             }
             Console.WriteLine("Start toasting...");
-            await DoTask(timeToToastBread);
+            await Delay(timeToToastBread);
 
             Console.WriteLine("Remove toast from toaster");
 
@@ -122,11 +123,11 @@ namespace AsyncBreakfast
         {
             Console.WriteLine($"putting {slices} slices of bacon in the pan");
             Console.WriteLine("cooking first side of bacon...");
-            await DoTask(timeToFryBacon);
+            await Delay(timeToFryBacon);
 
             await FlipBacon(slices);
             Console.WriteLine("cooking the second side of bacon...");
-            await DoTask(timeToFryBacon);
+            await Delay(timeToFryBacon);
 
             Console.WriteLine("Put bacon on plate");
 
@@ -138,27 +139,28 @@ namespace AsyncBreakfast
             for (int slice = 0; slice < slices; slice++)
             {
                 Console.WriteLine($"flipping slice of bacon {slice + 1}");
-                await DoTask(timeToFlipBacon);
+                await Delay(timeForShortTask);
             }
         }
 
         private static async Task<Egg> FryEggsAsync(int howMany)
         {
             Console.WriteLine("Warming the egg pan...");
-            await DoTask(timeToWarmPan);
+            await Delay(timeToWarmPan);
             Console.WriteLine($"cracking {howMany} eggs");
             Console.WriteLine("cooking the eggs ...");
-            await DoTask(timeToCookEgg);
+            await Delay(timeToCookEgg);
             Console.WriteLine("flipping the eggs ...");
-            await DoTask(timeToCookEgg);
+            await Delay(timeToCookEgg);
             Console.WriteLine("Put eggs on plate");
 
             return new Egg();
         }
 
-        private static Coffee PourCoffee()
+        private static async Task<Coffee> PourCoffee()
         {
             Console.WriteLine("Pouring coffee");
+            await Delay(timeForShortTask);
             return new Coffee();
         }
 
@@ -170,4 +172,36 @@ namespace AsyncBreakfast
 
 
     }
+
+    /* Ideally, I want to flip all the bacon before flipping the egs
+     * Console output:
+    Making 6 cups of cofee
+    Warming the egg pan...
+    putting 3 slices of bacon in the pan
+    cooking first side of bacon...
+    Putting a slice of bread in the toaster
+    Putting a slice of bread in the toaster
+    Start toasting...
+    cracking 2 eggs
+    cooking the eggs ...
+    Remove toast from toaster
+    Putting butter on the toast
+    Putting honey on the toast
+    toast is ready
+    flipping slice of bacon 1
+    flipping slice of bacon 2
+    flipping the eggs ...
+    flipping slice of bacon 3
+    cooking the second side of bacon...
+    Pot of 6 cups of cofee is done
+    Pouring coffee
+    coffee is ready
+    Put eggs on plate
+    eggs are ready
+    Put bacon on plate
+    bacon is ready
+    Pouring orange juice
+    juice is ready
+    Breakfast is ready!
+    */
 }
