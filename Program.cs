@@ -7,7 +7,7 @@ namespace AsyncBreakfast
     // These classes are intentionally empty for the purpose of this example. They are simply marker classes for the purpose of demonstration, contain no properties, and serve no other purpose.
     internal class Bacon { }
     internal class Coffee { }
-    internal class Egg { }
+    internal class Eggs { }
     internal class Juice { }
     internal class Toast { }
 
@@ -23,9 +23,9 @@ namespace AsyncBreakfast
 
         private static async Task Main(string[] args)
         {
-            //Console.WriteLine("pouring coffee");
-            //Coffee cup = PourCoffee();
-            //Console.WriteLine("coffee is ready");
+            await Delay(1);
+            Console.WriteLine("Making Breakfast");
+            await Delay(1);
 
             // the following Tasks gets executed immediately
             var makeCoffeeTask = MakeCoffeeAsync(6);
@@ -106,16 +106,23 @@ namespace AsyncBreakfast
 
         private static async Task<Toast> ToastBreadAsync(int slices)
         {
-            for (int slice = 0; slice < slices; slice++)
-            {
-                Console.WriteLine($"Putting slice of bread {slice + 1} in the toaster");
-                await Delay(timeForShortTask);
-            }
+            LoadToaster(slices).Wait();
+            //await LoadToaster(slices);
             Console.WriteLine("Start toasting...");
             await Delay(timeToToastBread);
 
             Console.WriteLine("Remove toast from toaster");
 
+            return new Toast();
+        }
+
+        private static async Task<Toast> LoadToaster(int slices)
+        {
+            for (int slice = 0; slice < slices; slice++)
+            {
+                Console.WriteLine($"Putting slice of bread {slice + 1} in the toaster");
+                await Delay(timeForShortTask);
+            }
             return new Toast();
         }
 
@@ -125,7 +132,19 @@ namespace AsyncBreakfast
             Console.WriteLine("cooking first side of bacon...");
             await Delay(timeToFryBacon);
 
+            // what I want is to flip all 3 slices of bacon sequentially without getting interrupted by another task, like this:
+            /*
+            flipping slice of bacon 1
+            flipping slice of bacon 2
+            flipping the eggs ...
+            flipping slice of bacon 3             
+             */
+
             await FlipBacon(slices);
+
+            //FlipBacon(slices).GetAwaiter().GetResult();
+            //FlipBacon(slices).Wait();
+
             Console.WriteLine("cooking the second side of bacon...");
             await Delay(timeToFryBacon);
 
@@ -143,7 +162,7 @@ namespace AsyncBreakfast
             }
         }
 
-        private static async Task<Egg> FryEggsAsync(int howMany)
+        private static async Task<Eggs> FryEggsAsync(int howMany)
         {
             Console.WriteLine("Warming the egg pan...");
             await Delay(timeToWarmPan);
@@ -154,7 +173,7 @@ namespace AsyncBreakfast
             await Delay(timeToCookEgg);
             Console.WriteLine("Put eggs on plate");
 
-            return new Egg();
+            return new Eggs();
         }
 
         private static async Task<Coffee> PourCoffee()
@@ -169,8 +188,30 @@ namespace AsyncBreakfast
             Console.WriteLine("Pouring orange juice");
             return new Juice();
         }
+    }
 
+    class MessageQueue
+    {
+        public List<string> buffer = new List<string>();
+        public bool blocked;
+        public void Log(string msg)
+        {
+            if (blocked)
+            {
+                buffer.Add(msg);
+            }
+            else
+            {
+                Console.WriteLine(msg);
+            }
+        }
 
+        public void Unblock()
+        {
+            blocked = false;
+            buffer.ForEach(Log);
+            buffer.Clear();
+        }
     }
 
     /* Ideally, I want to flip all the bacon before flipping the egs
@@ -203,5 +244,36 @@ namespace AsyncBreakfast
     Pouring orange juice
     juice is ready
     Breakfast is ready!
+
+    By using FlipBacon(slices).Wait(); we get the desired result
+    Making 6 cups of coffee
+    Warming the egg pan...
+    putting 3 slices of bacon in the pan
+    cooking first side of bacon...
+    Putting slice of bread 1 in the toaster
+    Putting slice of bread 2 in the toaster
+    cracking 2 eggs
+    cooking the eggs ...
+    Start toasting...
+    flipping slice of bacon 1
+    flipping slice of bacon 2
+    flipping slice of bacon 3
+    flipping the eggs ...
+    Remove toast from toaster
+    Putting butter on the toast
+    Putting honey on the toast
+    toast is ready
+    cooking the second side of bacon...
+    Pot of 6 cups of coffee is done
+    Pouring coffee
+    coffee is ready
+    Put eggs on plate
+    eggs are ready
+    Put bacon on plate
+    bacon is ready
+    Pouring juice
+    juice is ready
+    Breakfast is ready!
+
     */
 }
