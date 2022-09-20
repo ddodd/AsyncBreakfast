@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading.Tasks;
 
 namespace AsyncBreakfast
@@ -15,23 +16,38 @@ namespace AsyncBreakfast
     {
         private static float timeForShortTask = .5f;
         private static float timeToMakeCup = 1;
-        private static float timeToCookEgg = 3;
+        private static float timeToCookEggs = 6;
         private static float timeToWarmPan = 1;
         private static float timeToFryBacon = 3;
-        private static float timeToToastBread = 3;
+        private static float timeToToastBread = 4;
         private static float timeToPourJuice = 1;
+        private static MessageQueue report;
+        public const string CheckMark = "√";
+
+        private static int numberOfEggs = 2;
+        private static int stripsOfBacon = 3;
+        private static int piecesOfToast = 2;
+        private static int cupsOfCofee = 6;
+
+        private static float timeScale = .25f;
+        private static Stopwatch? timer;
 
         private static async Task Main(string[] args)
         {
-            await Delay(1);
-            Console.WriteLine("Making Breakfast");
+            timer = Stopwatch.StartNew();
+            report = new MessageQueue(timer);
+            Console.OutputEncoding = System.Text.Encoding.Unicode;
+            report.Log($"Making Breakfast of {numberOfEggs} eggs, {stripsOfBacon} strips of bacon, {piecesOfToast} pieces of toast");
+            report.Log($"and a {cupsOfCofee} cup pot of coffee to boot");
+            await Delay(.5f);
+            report.Log("☺ wake & bake ...");
             await Delay(1);
 
             // the following Tasks gets executed immediately
-            var makeCoffeeTask = MakeCoffeeAsync(6);
-            var eggsTask = FryEggsAsync(2);
-            var baconTask = FryBaconAsync(3);
-            var toastTask = MakeToastWithButterAndHoneyAsync(2);
+            var makeCoffeeTask = MakeCoffeeAsync(cupsOfCofee);
+            var eggsTask = FryEggsAsync(numberOfEggs);
+            var baconTask = FryBaconAsync(stripsOfBacon);
+            var toastTask = MakeToastWithButterAndHoneyAsync(piecesOfToast);
 
             // if we want the juice task to start at the same time, we can start it here like this
             // var juice = PourJuiceAsync();
@@ -44,19 +60,19 @@ namespace AsyncBreakfast
                 Task finishedTask = await Task.WhenAny(breakfastTasks);
                 if (finishedTask == eggsTask)
                 {
-                    Console.WriteLine("eggs are ready");
+                    report.Log("√ eggs are ready");
                 }
                 else if (finishedTask == baconTask)
                 {
-                    Console.WriteLine("bacon is ready");
+                    report.Log("√ bacon is ready");
                 }
                 else if (finishedTask == toastTask)
                 {
-                    Console.WriteLine("toast is ready");
+                    report.Log("√ toast is ready");
                 }
                 else if (finishedTask == makeCoffeeTask)
                 {
-                    Console.WriteLine("coffee is ready");
+                    report.Log("√ coffee is ready");
                 }
                 breakfastTasks.Remove(finishedTask);
             }
@@ -65,27 +81,44 @@ namespace AsyncBreakfast
 
             // the following code executes after the while loop
             await PourJuiceAsync();
-            Console.WriteLine("juice is ready");
+            report.Log("√ juice is ready");
 
-            Console.WriteLine("Breakfast is ready!");
+            report.Log("√ ☺ Breakfast is ready! ☺");
         }
 
-        private static async Task Delay(float timeTocomplete)
+        private static async Task Delay(float timeToCompleteInSeconds)
         {
-            await Task.Delay(GetTime(timeTocomplete));
+            await Task.Delay(GetTime(timeToCompleteInSeconds));
         }
 
         private static async Task<Coffee> MakeCoffeeAsync(int cups)
         {
-            Console.WriteLine($"Making {cups} cups of coffee");
+            report.Log($"making {cups} cups of coffee ...");
             await Delay(timeToMakeCup * cups);
-            Console.WriteLine($"Pot of {cups} cups of coffee is done");
+            report.Log($"pot of {cups} cups coffee is done");
+
             return await PourCoffee();
+        }
+
+        private static async Task<Coffee> PourCoffee()
+        {
+            report.Log("Pouring coffee ...");
+            await Delay(timeForShortTask);
+            var coffee = new Coffee();
+            
+            return await AddCreamer(coffee);
+        }
+
+        private static async Task<Coffee> AddCreamer(Coffee coffee)
+        {
+            report.Log("adding creamer to coffee ...");
+            await Delay(timeForShortTask);
+            return coffee;
         }
 
         private static async Task<Juice> PourJuiceAsync()
         {
-            Console.WriteLine("Pouring juice");
+            report.Log("pouring fresh juice ...");
             await Delay(timeToPourJuice);
             return new Juice();
         }
@@ -99,19 +132,24 @@ namespace AsyncBreakfast
             return toast;
         }
 
-        private static int GetTime(float seconds) => (int)(seconds * 1000);
+        private static int GetTime(float seconds) => (int)(seconds * 1000 / timeScale);
 
-        private static void ApplyButter(Toast t) => Console.WriteLine("Putting butter on the toast");
-        private static void ApplyHoney(Toast t) => Console.WriteLine("Putting honey on the toast");
+        private static void ApplyButter(Toast t) => report.Log("Putting butter on the toast");
+        private static void ApplyHoney(Toast t) => report.Log("Putting honey on the toast");
 
         private static async Task<Toast> ToastBreadAsync(int slices)
         {
-            LoadToaster(slices).Wait();
-            //await LoadToaster(slices);
-            Console.WriteLine("Start toasting...");
+
+            //LoadToaster(slices).Wait();
+
+            report.Block();
+            await LoadToaster(slices);
+            report.Log("Start toasting ...", true);
+            report.Unblock();
+
             await Delay(timeToToastBread);
 
-            Console.WriteLine("Remove toast from toaster");
+            report.Log("Remove toast from toaster");
 
             return new Toast();
         }
@@ -120,7 +158,7 @@ namespace AsyncBreakfast
         {
             for (int slice = 0; slice < slices; slice++)
             {
-                Console.WriteLine($"Putting slice of bread {slice + 1} in the toaster");
+                report.Log($"inserting slice of bread {slice + 1} in the toaster", true);
                 await Delay(timeForShortTask);
             }
             return new Toast();
@@ -128,27 +166,24 @@ namespace AsyncBreakfast
 
         private static async Task<Bacon> FryBaconAsync(int slices)
         {
-            Console.WriteLine($"putting {slices} slices of bacon in the pan");
-            Console.WriteLine("cooking first side of bacon...");
+            report.Log($"putting {slices} slices of bacon in the pan");
+            report.Log("cooking first side of bacon ...");
             await Delay(timeToFryBacon);
 
-            // what I want is to flip all 3 slices of bacon sequentially without getting interrupted by another task, like this:
-            /*
-            flipping slice of bacon 1
-            flipping slice of bacon 2
-            flipping the eggs ...
-            flipping slice of bacon 3             
-             */
-
+            // this works but it's not ideal
+            // it queues all logs until FlipBacon is complete
+            // it requires a special call to force output in awaited task
+            report.Block();
             await FlipBacon(slices);
+            report.Unblock();
 
             //FlipBacon(slices).GetAwaiter().GetResult();
             //FlipBacon(slices).Wait();
 
-            Console.WriteLine("cooking the second side of bacon...");
+            report.Log("cooking the second side of bacon ...");
             await Delay(timeToFryBacon);
 
-            Console.WriteLine("Put bacon on plate");
+            report.Log("put bacon on plate");
 
             return new Bacon();
         }
@@ -157,43 +192,60 @@ namespace AsyncBreakfast
         {
             for (int slice = 0; slice < slices; slice++)
             {
-                Console.WriteLine($"flipping slice of bacon {slice + 1}");
+                report.Log($"flipping slice of bacon {slice + 1}", true);
                 await Delay(timeForShortTask);
             }
         }
 
         private static async Task<Eggs> FryEggsAsync(int howMany)
         {
-            Console.WriteLine("Warming the egg pan...");
+            report.Log("warming the egg pan ...");
             await Delay(timeToWarmPan);
-            Console.WriteLine($"cracking {howMany} eggs");
-            Console.WriteLine("cooking the eggs ...");
-            await Delay(timeToCookEgg);
-            Console.WriteLine("flipping the eggs ...");
-            await Delay(timeToCookEgg);
-            Console.WriteLine("Put eggs on plate");
+            report.Log($"cracking {howMany} eggs");
+            /* the code inside while loop never runs
+            while (!report.IsBlocked)
+            {
+                report.Block();
+                for (int egg = 0; egg < howMany; egg++)
+                {
+                    report.Log($"cracking egg {egg + 1}", true);
+                    await Delay(timeForShortTask);
+                }
+                report.Unblock();
+            }
+            */
+            report.Log("cooking the eggs ...");
+            await Delay(timeToCookEggs/2f);
+            report.Log("flipping the eggs ...");
+            await Delay(timeToCookEggs/2f);
+            report.Log("put eggs on plate");
 
             return new Eggs();
         }
 
-        private static async Task<Coffee> PourCoffee()
-        {
-            Console.WriteLine("Pouring coffee");
-            await Delay(timeForShortTask);
-            return new Coffee();
-        }
-
         private static Juice PourJuiceSynchronously()
         {
-            Console.WriteLine("Pouring orange juice");
+            report.Log("Pouring orange juice");
             return new Juice();
         }
     }
 
+    // this works however
+    // it only works for one task at a time (see FlipBacon, LoadToaster)
+    // it's not scalable
     class MessageQueue
     {
-        public List<string> buffer = new List<string>();
-        public bool blocked;
+        public MessageQueue(Stopwatch timer)
+        {
+            this.timer = timer;
+        }
+        private Stopwatch timer;
+        private List<string> buffer = new List<string>();
+        private bool blocked;
+        private int count = 0;
+
+        public bool IsBlocked => blocked;
+
         public void Log(string msg)
         {
             if (blocked)
@@ -202,10 +254,32 @@ namespace AsyncBreakfast
             }
             else
             {
-                Console.WriteLine(msg);
+                Write(msg);
             }
         }
 
+        public void Log(string msg, bool force)
+        {
+            if (force)
+            {
+                Write(msg);
+            }
+            else
+            {
+                Log(msg);
+            }
+        }
+
+        private void Write(string msg)
+        {
+            Console.WriteLine($"{++count,2} {timer.Elapsed.TotalSeconds:n4} {msg}");
+        }
+
+
+        public void Block()
+        {
+            blocked = true;
+        }
         public void Unblock()
         {
             blocked = false;
